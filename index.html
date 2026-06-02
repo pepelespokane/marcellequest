@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#a585e8">
   <title>Marcelle's Animal Word Adventure</title>
+  <link rel="manifest" href="manifest.webmanifest">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -392,7 +394,7 @@
       color: #ffd700; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
     }
     .mg-canvas-wrap {
-      position: relative; width: min(95vw, 80vh, 600px); aspect-ratio: 1;
+      position: relative; width: min(95vw, calc(100vh - 250px), 600px); aspect-ratio: 1;
       border-radius: 20px; overflow: hidden;
       box-shadow: 0 6px 0 #7755aa, 0 8px 20px rgba(100,50,200,0.3);
       border: 4px solid #c0a0e0;
@@ -419,21 +421,24 @@
       font-size: clamp(0.9rem, 3vw, 1.2rem); font-weight: 700; color: #ffd700;
     }
     .mg-dpad {
-      display: none; position: relative; width: 150px; height: 150px; margin-top: 4px;
+      display: none; position: relative; width: 174px; height: 174px; margin-top: 4px;
+      touch-action: none;
     }
     .mg-dpad-btn {
-      position: absolute; width: 48px; height: 48px; border-radius: 12px;
+      position: absolute; width: 56px; height: 56px; border-radius: 14px;
       border: 2px solid #c0a0e0; background: rgba(255,255,255,0.85);
-      font-size: 1.4rem; cursor: pointer;
+      font-size: 1.6rem; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       user-select: none; -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
       font-family: 'Nunito', sans-serif;
     }
-    .mg-dpad-btn:active { background: #e0d0ff; }
-    .mg-dpad-up    { top: 0;    left: 51px; }
-    .mg-dpad-down  { bottom: 0; left: 51px; }
-    .mg-dpad-left  { top: 51px; left: 0; }
-    .mg-dpad-right { top: 51px; right: 0; }
+    .mg-dpad-btn:active { background: #e0d0ff; transform: scale(0.92); }
+    .mg-dpad-up    { top: 0;    left: 59px; }
+    .mg-dpad-down  { bottom: 0; left: 59px; }
+    .mg-dpad-left  { top: 59px; left: 0; }
+    .mg-dpad-right { top: 59px; right: 0; }
 
     /* ── B-2: Answer Juice ── */
     #answer-flash {
@@ -2753,6 +2758,7 @@ function replayChar() {
 
 // ── Audio (Web Audio API — no external files) ──
 let _audioCtx = null;
+let _audioUnlocked = false;
 function getAudioCtx() {
   if (!_audioCtx) {
     try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -2761,6 +2767,30 @@ function getAudioCtx() {
   if (_audioCtx.state === 'suspended') _audioCtx.resume();
   return _audioCtx;
 }
+
+// iOS Safari + mobile Chrome require AudioContext to be created/resumed inside a real
+// user-gesture handler. Without this, sounds appear to play but produce no audio because
+// the context stays in 'suspended' state forever.
+function unlockAudioOnce() {
+  if (_audioUnlocked) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  // Resume + play a silent buffer to fully unlock
+  const resumePromise = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
+  resumePromise.then(() => {
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      _audioUnlocked = true;
+    } catch(e) {}
+  });
+}
+['touchstart','touchend','click','keydown'].forEach(evt => {
+  document.addEventListener(evt, unlockAudioOnce, { once: false, passive: true });
+});
 
 function playTone(ctx, freq, startTime, dur, vol, type) {
   const osc = ctx.createOscillator();
@@ -2955,7 +2985,7 @@ function startMiniGameFlow(levelIdx) {
   document.getElementById('mg-timer').textContent  = '⏱️ --';
   showScreen('minigame-screen');
 
-  if ('ontouchstart' in window) document.getElementById('mg-dpad').style.display = 'block';
+  if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) document.getElementById('mg-dpad').style.display = 'block';
 
   // Countdown: title 1.5s → "GO!" 0.6s → start
   setTimeout(() => {
@@ -3060,8 +3090,12 @@ document.querySelectorAll('.mg-dpad-btn').forEach(btn => {
   const m = btn.className.match(/mg-dpad-(\w+)/);
   if (!m) return;
   const dir = m[1];
-  btn.addEventListener('touchstart', e => { e.preventDefault(); mgKeys[dir] = true; });
-  btn.addEventListener('touchend',   e => { e.preventDefault(); mgKeys[dir] = false; });
+  // touchstart/touchend with passive:false so preventDefault stops native scroll/zoom
+  btn.addEventListener('touchstart', e => { e.preventDefault(); mgKeys[dir] = true; }, { passive: false });
+  btn.addEventListener('touchend',   e => { e.preventDefault(); mgKeys[dir] = false; }, { passive: false });
+  // touchcancel handles cases where the OS interrupts the touch (notification, gesture conflict)
+  btn.addEventListener('touchcancel', e => { mgKeys[dir] = false; });
+  // Mouse fallback for desktop/hybrid devices
   btn.addEventListener('mousedown',  () => mgKeys[dir] = true);
   btn.addEventListener('mouseup',    () => mgKeys[dir] = false);
   btn.addEventListener('mouseleave', () => mgKeys[dir] = false);
@@ -4658,5 +4692,19 @@ function createBarrelDodge(canvas, ctx) {
   }
 })();
 </script>
+
+<script>
+// Register service worker for PWA support + auto-updates on each launch.
+// Network-first strategy means fresh content is fetched whenever online;
+// the cache only kicks in offline. No reload prompt — keeps the game distraction-free for Elle.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => reg.update())
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+</script>
+
 </body>
 </html>

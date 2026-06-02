@@ -1,0 +1,10 @@
+{
+  "name": "Marcelle's Animal Word Adventure",
+  "short_name": "Animal Words",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffd6e7",
+  "theme_color": "#a585e8",
+  "description": "Reading game with sight words and animal friends"
+}
