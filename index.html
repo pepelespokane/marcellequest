@@ -2524,6 +2524,26 @@ if (window.speechSynthesis) {
   _loadVoices();
 }
 
+// iOS Safari + iOS PWAs require speechSynthesis.speak() to be initiated from a real
+// user gesture, OR to be "warmed up" with a silent utterance inside one. Without this,
+// the first speak() call after page load gets silently dropped on mobile — so Marcelle
+// taps "play" and hears nothing. Fires a silent utterance once on the first user input.
+let _speechUnlocked = false;
+function unlockSpeechOnce() {
+  if (_speechUnlocked || !window.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance('.');
+    u.volume = 0; u.rate = 1; u.pitch = 1;
+    window.speechSynthesis.speak(u);
+    _speechUnlocked = true;
+    // Voices often populate AFTER the first speak() on iOS — re-read them now.
+    setTimeout(_loadVoices, 100);
+  } catch(e) {}
+}
+['touchstart','touchend','click','keydown'].forEach(evt => {
+  document.addEventListener(evt, unlockSpeechOnce, { once: false, passive: true });
+});
+
 function speakSpanishWord(text, rate) {
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
