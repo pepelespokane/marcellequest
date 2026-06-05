@@ -3107,7 +3107,10 @@ document.addEventListener('keyup', function(e) {
 
 // ── Touch D-Pad ──
 document.querySelectorAll('.mg-dpad-btn').forEach(btn => {
-  const m = btn.className.match(/mg-dpad-(\w+)/);
+  // Match only direction classes — NOT mg-dpad-btn itself. The old regex
+  // /mg-dpad-(\w+)/ captured "btn" first (it appears earlier in className)
+  // so all four arrows silently mapped to mgKeys.btn instead of up/down/left/right.
+  const m = btn.className.match(/mg-dpad-(up|down|left|right)/);
   if (!m) return;
   const dir = m[1];
   // touchstart/touchend with passive:false so preventDefault stops native scroll/zoom
