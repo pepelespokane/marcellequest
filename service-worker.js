@@ -2,7 +2,7 @@
 // Ensures each app launch tries to fetch the latest version from the server.
 // Falls back to cache only if offline.
 
-const CACHE_NAME = 'animal-words-v3';
+const CACHE_NAME = 'animal-words-v4';
 const APP_SHELL = [
   './',
   './index.html',
@@ -31,12 +31,18 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests
   if (!event.request.url.startsWith(self.location.origin)) return;
 
+  // Use cache:'reload' to bypass the browser's HTTP cache entirely.
+  // Without this, GitHub Pages' Cache-Control: max-age=600 makes the SW
+  // serve stale HTML for up to 10 minutes after a deploy (and 304-revalidate
+  // responses re-cache the same stale body, so the staleness persists).
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'reload' })
       .then(response => {
-        // Update cache with the fresh version
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        // Only cache successful 200s (skip 304/opaque/error)
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
         return response;
       })
       .catch(() => {
