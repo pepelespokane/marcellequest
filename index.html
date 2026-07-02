@@ -2799,6 +2799,7 @@ function unlockSpeechOnce() {
 
 function speakSpanishWord(text, rate) {
   window.speechSynthesis.cancel();
+  try { window.speechSynthesis.resume(); } catch(e) {}  // wake the engine if the browser idled/paused it (fixes auto-speak silently not firing)
   const u = new SpeechSynthesisUtterance(text);
   u.rate = rate || 0.8; u.pitch = 1.1; u.lang = 'es-MX';
   if (_spanishVoiceM) u.voice = _spanishVoiceM;
@@ -2807,6 +2808,7 @@ function speakSpanishWord(text, rate) {
 
 function speakSpanishSentence(text, rate) {
   window.speechSynthesis.cancel();
+  try { window.speechSynthesis.resume(); } catch(e) {}
   const u = new SpeechSynthesisUtterance(text);
   u.rate = rate || 0.75; u.pitch = 1.0; u.lang = 'es-MX';
   if (_spanishVoiceF) u.voice = _spanishVoiceF;
