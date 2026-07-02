@@ -466,6 +466,7 @@
   <div style="display:flex;flex-direction:column;gap:18px;align-items:center;margin-top:22px;">
     <button class="btn-primary" onclick="selectProfile('marcelle')">🦄 Marcelle</button>
     <button class="btn-primary" onclick="selectProfile('nora')">🐥 Nora</button>
+    <button class="btn-primary" onclick="selectProfile('spanish')">🇪🇸 Español (Marcelle)</button>
   </div>
 </div>
 
@@ -1628,6 +1629,9 @@ let totalStars        = 0;
 let playerProfile     = 'marcelle';   // 'marcelle' | 'nora' — set on the profile-select screen; namespaces saves
 let levelNoraPool     = [];           // Nora Quest: the current level's questions
 let noraPrompt        = '';           // Nora Quest: current spoken prompt (for the 🔊 repeat button)
+let levelSpanishPool  = [];           // Spanish mode: the current level's questions
+let spanishPrompt     = '';           // Spanish mode: current spoken Spanish word (for 🔊 repeat)
+let currentSpanishEnglish = '';       // Spanish mode: English translation to show on correct
 let currentWord       = '';
 let buttonsLocked     = false;
 let levelWordPool        = [];      // 5 words: [T1,T1,T1,T2,T2]
@@ -2029,10 +2033,17 @@ function startLevel(n) {
   wordCount = 0;
   streak = 0;
 
-  const levelType = playerProfile === 'nora' ? 'nora' : getLevelType(n);
+  const levelType = playerProfile === 'nora' ? 'nora'
+                  : playerProfile === 'spanish' ? 'spanish-mode'
+                  : getLevelType(n);
 
   if (levelType === 'nora') {
     levelNoraPool     = buildNoraPool();
+    levelWordPool     = [];
+    levelSentencePool = [];
+    levelMathPool     = [];
+  } else if (levelType === 'spanish-mode') {
+    levelSpanishPool  = buildSpanishPool();
     levelWordPool     = [];
     levelSentencePool = [];
     levelMathPool     = [];
@@ -2107,7 +2118,7 @@ function updateScene(count) {
 function buildProgressBar() {
   const bar = document.getElementById('progress-bar');
   bar.innerHTML = '';
-  const dotCount = playerProfile === 'nora' ? 6 : 10;
+  const dotCount = playerProfile === 'nora' ? 6 : playerProfile === 'spanish' ? 8 : 10;
   for (let i = 0; i < dotCount; i++) {
     const d = document.createElement('div');
     d.className = 'pdot';
@@ -2235,6 +2246,7 @@ function newRound() {
   repeatCount = 0;
   hideTranslation();
   if (playerProfile === 'nora') { renderNoraQuestion(); return; }
+  if (playerProfile === 'spanish') { renderSpanishQuestion(); return; }
   const wordBtns    = document.getElementById('word-buttons');
   const sentBldr    = document.getElementById('sentence-builder');
   const mathMode    = document.getElementById('math-mode');
@@ -2435,7 +2447,10 @@ function checkAnswer(btn) {
   if (btn.dataset.word === currentWord) {
     buttonsLocked = true;
     btn.classList.add('correct');
-    if (playerProfile !== 'nora' && getLevelType(currentLevel) === 'spanish') {
+    if (playerProfile === 'spanish') {
+      if (currentSpanishEnglish) showTranslation(currentSpanishEnglish);
+      speakSpanishWord(currentWord);   // hear the word confirmed on a correct tap
+    } else if (playerProfile !== 'nora' && getLevelType(currentLevel) === 'spanish') {
       // Check picture vocab pools first, then ES_TRANSLATIONS
       const picItem = [...PICTURE_VOCAB_T1, ...PICTURE_VOCAB_T2].find(p => p.spanish === currentWord);
       const t = picItem ? picItem.english : ES_TRANSLATIONS[currentWord];
@@ -2447,6 +2462,7 @@ function checkAnswer(btn) {
     btn.classList.add('wrong');
     onWrongAnswer();
     if (playerProfile === 'nora') speakSentence(currentWord);
+    else if (playerProfile === 'spanish') speakSpanishWord(currentWord);
     else speakInCurrentLang(currentWord, true);
     setTimeout(() => btn.classList.remove('wrong'), 600);
   }
@@ -2643,6 +2659,83 @@ function renderNoraQuestion() {
   setTimeout(() => speakSentence(q.speak), 450);
 }
 
+// ════════════════════════════════════════════════
+//  SPANISH LISTENING MODE (Marcelle) — K/1st-grade vocab, listening-first
+//  Two round types, both reuse the 3-button tap renderer + native Spanish TTS:
+//   • 'listen'  — hear the Spanish word → tap the matching PICTURE (listening comprehension)
+//   • 'picture' — see the picture → tap the Spanish WORD (recognition/reading)
+//  8 questions/level; Marcelle's arcade mini-games play in between (they fall through).
+// ════════════════════════════════════════════════
+const SPANISH_VOCAB = [
+  // Animales
+  {emoji:'🐶',es:'perro',en:'dog'},{emoji:'🐱',es:'gato',en:'cat'},{emoji:'🐟',es:'pez',en:'fish'},
+  {emoji:'🐦',es:'pájaro',en:'bird'},{emoji:'🐴',es:'caballo',en:'horse'},{emoji:'🐄',es:'vaca',en:'cow'},
+  {emoji:'🐷',es:'cerdo',en:'pig'},{emoji:'🐔',es:'pollo',en:'chicken'},{emoji:'🐑',es:'oveja',en:'sheep'},
+  {emoji:'🐭',es:'ratón',en:'mouse'},{emoji:'🐻',es:'oso',en:'bear'},{emoji:'🦁',es:'león',en:'lion'},
+  {emoji:'🐘',es:'elefante',en:'elephant'},{emoji:'🐵',es:'mono',en:'monkey'},{emoji:'🐰',es:'conejo',en:'rabbit'},
+  {emoji:'🐸',es:'rana',en:'frog'},{emoji:'🐢',es:'tortuga',en:'turtle'},{emoji:'🦆',es:'pato',en:'duck'},
+  {emoji:'🐝',es:'abeja',en:'bee'},{emoji:'🦋',es:'mariposa',en:'butterfly'},
+  // Comida
+  {emoji:'🍎',es:'manzana',en:'apple'},{emoji:'🍌',es:'plátano',en:'banana'},{emoji:'🍇',es:'uvas',en:'grapes'},
+  {emoji:'🍊',es:'naranja',en:'orange'},{emoji:'🍞',es:'pan',en:'bread'},{emoji:'🧀',es:'queso',en:'cheese'},
+  {emoji:'🥚',es:'huevo',en:'egg'},{emoji:'🥛',es:'leche',en:'milk'},{emoji:'🍦',es:'helado',en:'ice cream'},
+  {emoji:'🍓',es:'fresa',en:'strawberry'},{emoji:'🥕',es:'zanahoria',en:'carrot'},{emoji:'🍪',es:'galleta',en:'cookie'},
+  // Naturaleza y cosas
+  {emoji:'☀️',es:'sol',en:'sun'},{emoji:'🌙',es:'luna',en:'moon'},{emoji:'⭐',es:'estrella',en:'star'},
+  {emoji:'🌳',es:'árbol',en:'tree'},{emoji:'🌺',es:'flor',en:'flower'},{emoji:'🏠',es:'casa',en:'house'},
+  {emoji:'🚗',es:'carro',en:'car'},{emoji:'⚽',es:'pelota',en:'ball'},{emoji:'📖',es:'libro',en:'book'},
+  {emoji:'🌊',es:'mar',en:'sea'},{emoji:'🏔️',es:'montaña',en:'mountain'},{emoji:'🌧️',es:'lluvia',en:'rain'},
+  {emoji:'❄️',es:'nieve',en:'snow'},{emoji:'💧',es:'agua',en:'water'},
+  // Colores
+  {emoji:'🔴',es:'rojo',en:'red'},{emoji:'🔵',es:'azul',en:'blue'},{emoji:'🟢',es:'verde',en:'green'},
+  {emoji:'🟡',es:'amarillo',en:'yellow'},{emoji:'🟣',es:'morado',en:'purple'},{emoji:'⚫',es:'negro',en:'black'},
+  // Cuerpo
+  {emoji:'✋',es:'mano',en:'hand'},{emoji:'👀',es:'ojos',en:'eyes'},{emoji:'👃',es:'nariz',en:'nose'},
+  {emoji:'👄',es:'boca',en:'mouth'},{emoji:'👂',es:'oreja',en:'ear'},
+];
+
+function buildSpanishPool() {
+  const picks = shuffleArray([...SPANISH_VOCAB]).slice(0, 8);
+  return picks.map((item, i) => {
+    const type = i < 5 ? 'listen' : 'picture';   // listening-weighted (5 listen / 3 picture)
+    const others = shuffleArray(SPANISH_VOCAB.filter(v => v.es !== item.es)).slice(0, 2);
+    const trio = shuffleArray([item, ...others]);
+    if (type === 'listen') {
+      return { type, instruction: '¡Escucha! Toca el dibujo 👂', scene: '🔊',
+        spanish: item.es, english: item.en,
+        choices: trio.map(v => ({ label: v.emoji, key: v.es })), answer: item.es };
+    }
+    return { type, instruction: '¿Qué es? Toca la palabra 👀', scene: item.emoji,
+      spanish: item.es, english: item.en,
+      choices: trio.map(v => ({ label: v.es, key: v.es })), answer: item.es };
+  });
+}
+
+function renderSpanishQuestion() {
+  const q = levelSpanishPool[wordCount];
+  document.getElementById('math-mode').style.display = 'none';
+  document.getElementById('sentence-builder').style.display = 'none';
+  const pm = document.getElementById('picture-match'); if (pm) pm.style.display = 'none';
+  document.getElementById('word-buttons').style.display = 'flex';
+  currentMathQ = null; currentSentence = null;
+  currentWord  = q.answer;
+  spanishPrompt = q.spanish;
+  currentSpanishEnglish = q.english;
+  document.getElementById('enc-instruction').textContent = q.instruction;
+  const scene = document.getElementById('scene-display');
+  scene.textContent = q.scene;
+  scene.style.fontSize = (q.type === 'listen') ? 'clamp(3rem, 12vw, 6rem)' : 'clamp(4rem, 15vw, 7rem)';
+  for (let i = 0; i < 3; i++) {
+    const btn = document.getElementById('btn-word-' + i);
+    btn.textContent  = q.choices[i].label;
+    btn.className    = 'word-btn';
+    btn.dataset.word = q.choices[i].key;
+    btn.style.display = '';
+  }
+  if (q.type === 'listen') setTimeout(() => speakSpanishWord(q.spanish), 450);
+  // 'picture' type: no auto-speak (would give the answer away)
+}
+
 function speakSentence(text, rate) {
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -2741,6 +2834,7 @@ function repeatCurrentPrompt() {
   // Each press slows down by 15% — 0.75 → 0.64 → 0.54 → 0.46 (floor 0.35)
   const rate = Math.max(0.35, 0.75 * Math.pow(0.85, repeatCount));
   if (playerProfile === 'nora') { speakSentence(noraPrompt, rate); return; }
+  if (playerProfile === 'spanish') { speakSpanishWord(spanishPrompt, rate); return; }
   if (currentMathQ)         { speakSentence(currentMathQ.text, rate); }
   else if (currentSentence) { speakInCurrentLang(currentSentence.words.join(' '), false, rate); }
   else                      { speakInCurrentLang(currentWord, true, rate); }
@@ -2867,7 +2961,7 @@ function onCorrectWord() {
   updateScene(wordCount);
   updateStarBadges();
   saveProgress();
-  if (wordCount >= (playerProfile === 'nora' ? 6 : 10)) {
+  if (wordCount >= (playerProfile === 'nora' ? 6 : playerProfile === 'spanish' ? 8 : 10)) {
     playSound('levelwin');
     fireFireworks();
     setTimeout(levelComplete, 1100);

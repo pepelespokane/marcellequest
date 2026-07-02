@@ -2,7 +2,7 @@
 // Ensures each app launch tries to fetch the latest version from the server.
 // Falls back to cache only if offline.
 
-const CACHE_NAME = 'animal-words-v4';
+const CACHE_NAME = 'animal-words-v5';
 const APP_SHELL = [
   './',
   './index.html',
