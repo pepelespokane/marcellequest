@@ -456,20 +456,7 @@
 <button class="btn-startover" onclick="confirmStartOver()">↩ Start Over</button>
 
 <!-- ══ TITLE SCREEN ══ -->
-<!-- ══ PROFILE SELECT SCREEN ══ -->
-<div id="profile-screen" class="screen active">
-  <div class="title-animals">
-    <span>🦄</span><span>⭐</span><span>🐥</span>
-  </div>
-  <h1>Who's Playing?</h1>
-  <p>Tap your name!</p>
-  <div style="display:flex;flex-direction:column;gap:18px;align-items:center;margin-top:22px;">
-    <button class="btn-primary" onclick="selectProfile('marcelle')">🦄 Marcelle</button>
-    <button class="btn-primary" onclick="selectProfile('nora')">🐥 Nora</button>
-  </div>
-</div>
-
-<div id="title-screen" class="screen">
+<div id="title-screen" class="screen active">
   <div class="title-animals">
     <span>🐸</span><span>🐶</span><span>🐱</span><span>🐻</span><span>🦄</span><span>🐧</span>
   </div>
@@ -537,7 +524,6 @@
   <div class="mg-title" id="mg-title">🎮 Bonus Game!</div>
   <div class="mg-canvas-wrap" id="mg-canvas-wrap">
     <canvas id="mg-canvas" width="600" height="600"></canvas>
-    <div id="nora-mg" style="display:none;"></div>
     <div class="mg-overlay" id="mg-overlay">
       <div class="mg-overlay-icon" id="mg-overlay-icon">🌊</div>
       <div class="mg-overlay-title" id="mg-overlay-title">Star Swimmer</div>
@@ -1625,9 +1611,6 @@ let selectedChar      = null;
 let currentLevel      = 0;
 let wordCount         = 0;
 let totalStars        = 0;
-let playerProfile     = 'marcelle';   // 'marcelle' | 'nora' — set on the profile-select screen; namespaces saves
-let levelNoraPool     = [];           // Nora Quest: the current level's questions
-let noraPrompt        = '';           // Nora Quest: current spoken prompt (for the 🔊 repeat button)
 let currentWord       = '';
 let buttonsLocked     = false;
 let levelWordPool        = [];      // 5 words: [T1,T1,T1,T2,T2]
@@ -1650,16 +1633,16 @@ let repeatCount         = 0;         // how many times 🔊 pressed this round
 //  PERSISTENCE
 // ════════════════════════════════════════════════
 function saveProgress() {
-  localStorage.setItem(playerProfile + '_char',  selectedChar || '');
-  localStorage.setItem(playerProfile + '_level', currentLevel);
-  localStorage.setItem(playerProfile + '_stars', totalStars);
+  localStorage.setItem('marcelle_char',  selectedChar || '');
+  localStorage.setItem('marcelle_level', currentLevel);
+  localStorage.setItem('marcelle_stars', totalStars);
 }
 
 function loadSaved() {
   return {
-    char:  localStorage.getItem(playerProfile + '_char') || '',
-    level: parseInt(localStorage.getItem(playerProfile + '_level') || '0', 10),
-    stars: parseInt(localStorage.getItem(playerProfile + '_stars') || '0', 10)
+    char:  localStorage.getItem('marcelle_char') || '',
+    level: parseInt(localStorage.getItem('marcelle_level') || '0', 10),
+    stars: parseInt(localStorage.getItem('marcelle_stars') || '0', 10)
   };
 }
 
@@ -1714,31 +1697,14 @@ function clearBiomeBg() {
 function confirmStartOver() {
   if (confirm('Start over? Your quest progress will be lost!')) {
     cleanupMiniGame();
-    localStorage.removeItem(playerProfile + '_char');
-    localStorage.removeItem(playerProfile + '_level');
-    localStorage.removeItem(playerProfile + '_stars');
+    localStorage.removeItem('marcelle_char');
+    localStorage.removeItem('marcelle_level');
+    localStorage.removeItem('marcelle_stars');
     selectedChar = null; currentLevel = 0; totalStars = 0; wordCount = 0;
     clearBiomeBg();
     document.getElementById('mg-dpad').style.display = 'none';
     showTitle();
   }
-}
-
-// ════════════════════════════════════════════════
-//  PROFILE SELECT  (Marcelle / Nora)
-// ════════════════════════════════════════════════
-function selectProfile(p) {
-  playerProfile = p;
-  // Profile-specific "welcome back" subtitle
-  const s = loadSaved();
-  if (s.char && CHARACTERS[s.char] && s.stars > 0) {
-    const ch = CHARACTERS[s.char];
-    document.getElementById('title-sub').textContent =
-      `Welcome back! ${ch.emoji} ${ch.name} needs you! ⭐ ${s.stars}`;
-  } else {
-    document.getElementById('title-sub').textContent = 'Go on a quest to get home!';
-  }
-  showTitle();
 }
 
 // ════════════════════════════════════════════════
@@ -2029,14 +1995,9 @@ function startLevel(n) {
   wordCount = 0;
   streak = 0;
 
-  const levelType = playerProfile === 'nora' ? 'nora' : getLevelType(n);
+  const levelType = getLevelType(n);
 
-  if (levelType === 'nora') {
-    levelNoraPool     = buildNoraPool();
-    levelWordPool     = [];
-    levelSentencePool = [];
-    levelMathPool     = [];
-  } else if (levelType === 'words') {
+  if (levelType === 'words') {
     // Pre-select words: 3 from Tier 1 (Q1–3), 2 from Tier 2 (Q4–5) — no repeats within level
     levelWordPool = [
       ...shuffleArray(WORDS_T1).slice(0, 3),
@@ -2107,8 +2068,7 @@ function updateScene(count) {
 function buildProgressBar() {
   const bar = document.getElementById('progress-bar');
   bar.innerHTML = '';
-  const dotCount = playerProfile === 'nora' ? 6 : 10;
-  for (let i = 0; i < dotCount; i++) {
+  for (let i = 0; i < 10; i++) {
     const d = document.createElement('div');
     d.className = 'pdot';
     d.id = 'pdot-' + i;
@@ -2234,7 +2194,6 @@ function newRound() {
   buttonsLocked = false;
   repeatCount = 0;
   hideTranslation();
-  if (playerProfile === 'nora') { renderNoraQuestion(); return; }
   const wordBtns    = document.getElementById('word-buttons');
   const sentBldr    = document.getElementById('sentence-builder');
   const mathMode    = document.getElementById('math-mode');
@@ -2435,7 +2394,7 @@ function checkAnswer(btn) {
   if (btn.dataset.word === currentWord) {
     buttonsLocked = true;
     btn.classList.add('correct');
-    if (playerProfile !== 'nora' && getLevelType(currentLevel) === 'spanish') {
+    if (getLevelType(currentLevel) === 'spanish') {
       // Check picture vocab pools first, then ES_TRANSLATIONS
       const picItem = [...PICTURE_VOCAB_T1, ...PICTURE_VOCAB_T2].find(p => p.spanish === currentWord);
       const t = picItem ? picItem.english : ES_TRANSLATIONS[currentWord];
@@ -2446,8 +2405,7 @@ function checkAnswer(btn) {
   } else {
     btn.classList.add('wrong');
     onWrongAnswer();
-    if (playerProfile === 'nora') speakSentence(currentWord);
-    else speakInCurrentLang(currentWord, true);
+    speakInCurrentLang(currentWord, true);
     setTimeout(() => btn.classList.remove('wrong'), 600);
   }
 }
@@ -2523,124 +2481,6 @@ function checkSentence() {
       renderSentenceUI();
     }, 900);
   }
-}
-
-// ════════════════════════════════════════════════
-//  NORA QUEST — content (age 3–4, English-first, recognition/matching)
-//  All types reuse the 3-button tap renderer + checkAnswer + celebration.
-//  6 questions per level; prompts always spoken in English (speakSentence).
-// ════════════════════════════════════════════════
-const NORA_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
-const NORA_NUMBERS = ['1','2','3','4','5','6','7','8','9','10'];
-const NORA_COLORS = [  // bright, clearly-distinct colors only (dropped black/brown — ambiguous as small squares)
-  {name:'red',emoji:'🟥'},{name:'blue',emoji:'🟦'},{name:'green',emoji:'🟩'},
-  {name:'yellow',emoji:'🟨'},{name:'orange',emoji:'🟧'},{name:'purple',emoji:'🟪'}
-];
-const NORA_SHAPES = [
-  {name:'circle',emoji:'⭕'},{name:'star',emoji:'⭐'},{name:'heart',emoji:'❤️'},
-  {name:'triangle',emoji:'🔺'},{name:'square',emoji:'⬜'},{name:'diamond',emoji:'🔷'}
-];
-const NORA_COUNT_EMOJI = ['🐶','🍎','⭐','🐱','🌸','🐟','🚗','🎈','🦋','🐢'];
-const NORA_FIRSTSOUND = [
-  {word:'apple',emoji:'🍎',letter:'a'},{word:'ball',emoji:'⚽',letter:'b'},
-  {word:'cat',emoji:'🐱',letter:'c'},{word:'dog',emoji:'🐶',letter:'d'},
-  {word:'egg',emoji:'🥚',letter:'e'},{word:'fish',emoji:'🐟',letter:'f'},
-  {word:'goat',emoji:'🐐',letter:'g'},{word:'hat',emoji:'🎩',letter:'h'},
-  {word:'leaf',emoji:'🍃',letter:'l'},{word:'moon',emoji:'🌙',letter:'m'},
-  {word:'pig',emoji:'🐷',letter:'p'},{word:'rabbit',emoji:'🐰',letter:'r'},
-  {word:'sun',emoji:'☀️',letter:'s'},{word:'tree',emoji:'🌳',letter:'t'}
-];
-const NORA_VOCAB = [
-  {word:'dog',emoji:'🐶'},{word:'cat',emoji:'🐱'},{word:'sun',emoji:'☀️'},
-  {word:'star',emoji:'⭐'},{word:'apple',emoji:'🍎'},{word:'fish',emoji:'🐟'},
-  {word:'car',emoji:'🚗'},{word:'tree',emoji:'🌳'},{word:'flower',emoji:'🌸'},
-  {word:'ball',emoji:'⚽'},{word:'bird',emoji:'🐦'},{word:'frog',emoji:'🐸'}
-];
-
-function nq(label, key) { return { label: String(label), key: String(key) }; }
-
-function noraLetter() {
-  const t = NORA_LETTERS[Math.floor(Math.random() * NORA_LETTERS.length)];
-  const others = shuffleArray(NORA_LETTERS.filter(l => l !== t)).slice(0, 2);
-  return { instruction: 'Find the letter! 🔤', scene: '',
-    speak: 'Find the letter ' + t.toUpperCase(),
-    choices: shuffleArray([t, ...others].map(l => nq(l, l))), answer: t };
-}
-function noraFirstSound() {
-  const it = NORA_FIRSTSOUND[Math.floor(Math.random() * NORA_FIRSTSOUND.length)];
-  const others = shuffleArray(NORA_LETTERS.filter(l => l !== it.letter)).slice(0, 2);
-  return { instruction: 'Which letter does it start with? 🔤', scene: it.emoji,
-    speak: it.word + '. Which letter does ' + it.word + ' start with?',
-    choices: shuffleArray([it.letter, ...others].map(l => nq(l, l))), answer: it.letter };
-}
-function noraNumber() {
-  const t = NORA_NUMBERS[Math.floor(Math.random() * NORA_NUMBERS.length)];
-  const others = shuffleArray(NORA_NUMBERS.filter(n => n !== t)).slice(0, 2);
-  return { instruction: 'Find the number! 🔢', scene: '',
-    speak: 'Find the number ' + t,
-    choices: shuffleArray([t, ...others].map(n => nq(n, n))), answer: t };
-}
-function noraCount() {
-  const n = 1 + Math.floor(Math.random() * 5); // 1–5
-  const emoji = NORA_COUNT_EMOJI[Math.floor(Math.random() * NORA_COUNT_EMOJI.length)];
-  const opts = new Set([String(n)]);
-  while (opts.size < 3) { opts.add(String(1 + Math.floor(Math.random() * 6))); }
-  return { instruction: 'How many? Count them! 🔢',
-    scene: Array(n).fill(emoji).join(' '),         // spaced out so they're easy to count
-    sceneSize: 'clamp(1.6rem, 6vw, 2.8rem)',       // smaller so all fit on screen (no overflow)
-    speak: 'How many do you see? Count them!',
-    choices: shuffleArray([...opts].map(x => nq(x, x))), answer: String(n) };
-}
-function noraColor() {
-  const t = NORA_COLORS[Math.floor(Math.random() * NORA_COLORS.length)];
-  const others = shuffleArray(NORA_COLORS.filter(c => c.name !== t.name)).slice(0, 2);
-  return { instruction: 'Tap the color! 🎨', scene: '',
-    speak: 'Find the color ' + t.name,
-    choices: shuffleArray([t, ...others].map(c => nq(c.emoji, c.name))), answer: t.name };
-}
-function noraShape() {
-  const t = NORA_SHAPES[Math.floor(Math.random() * NORA_SHAPES.length)];
-  const others = shuffleArray(NORA_SHAPES.filter(s => s.name !== t.name)).slice(0, 2);
-  return { instruction: 'Tap the shape! 🔷', scene: '',
-    speak: 'Find the ' + t.name,
-    choices: shuffleArray([t, ...others].map(s => nq(s.emoji, s.name))), answer: t.name };
-}
-function noraVocab() {
-  const t = NORA_VOCAB[Math.floor(Math.random() * NORA_VOCAB.length)];
-  const others = shuffleArray(NORA_VOCAB.filter(v => v.word !== t.word)).slice(0, 2);
-  return { instruction: 'Tap the picture! 👀', scene: '',
-    speak: 'Where is the ' + t.word + '?',
-    choices: shuffleArray([t, ...others].map(v => nq(v.emoji, v.word))), answer: t.word };
-}
-
-// Build 6 questions — one of each core type, balanced, in shuffled order
-function buildNoraPool() {
-  const gens = [noraVocab, noraLetter, noraFirstSound, noraNumber, noraCount,
-                shuffleArray([noraColor, noraShape])[0]];
-  return shuffleArray(gens).map(g => g());
-}
-
-function renderNoraQuestion() {
-  const q = levelNoraPool[wordCount];
-  document.getElementById('math-mode').style.display = 'none';
-  document.getElementById('sentence-builder').style.display = 'none';
-  const pm = document.getElementById('picture-match'); if (pm) pm.style.display = 'none';
-  document.getElementById('word-buttons').style.display = 'flex';
-  currentMathQ = null; currentSentence = null;
-  currentWord  = q.answer;
-  noraPrompt   = q.speak;
-  document.getElementById('enc-instruction').textContent = q.instruction;
-  const scene = document.getElementById('scene-display');
-  if (q.scene) { scene.textContent = q.scene; scene.style.fontSize = q.sceneSize || 'clamp(3rem, 12vw, 6rem)'; }
-  else         { scene.textContent = '';      scene.style.fontSize = ''; }
-  for (let i = 0; i < 3; i++) {
-    const btn = document.getElementById('btn-word-' + i);
-    btn.textContent  = q.choices[i].label;
-    btn.className    = 'word-btn';
-    btn.dataset.word = q.choices[i].key;
-    btn.style.display = '';
-  }
-  setTimeout(() => speakSentence(q.speak), 450);
 }
 
 function speakSentence(text, rate) {
@@ -2740,7 +2580,6 @@ function repeatCurrentPrompt() {
   repeatCount++;
   // Each press slows down by 15% — 0.75 → 0.64 → 0.54 → 0.46 (floor 0.35)
   const rate = Math.max(0.35, 0.75 * Math.pow(0.85, repeatCount));
-  if (playerProfile === 'nora') { speakSentence(noraPrompt, rate); return; }
   if (currentMathQ)         { speakSentence(currentMathQ.text, rate); }
   else if (currentSentence) { speakInCurrentLang(currentSentence.words.join(' '), false, rate); }
   else                      { speakInCurrentLang(currentWord, true, rate); }
@@ -2867,7 +2706,7 @@ function onCorrectWord() {
   updateScene(wordCount);
   updateStarBadges();
   saveProgress();
-  if (wordCount >= (playerProfile === 'nora' ? 6 : 10)) {
+  if (wordCount >= 10) {
     playSound('levelwin');
     fireFireworks();
     setTimeout(levelComplete, 1100);
@@ -3135,7 +2974,7 @@ let mgGameOrder = []; // shuffled indices into MINI_GAMES — set per character 
 
 const MINI_GAMES = [
   { name:'Star Swimmer',   icon:'🌊', desc:'Collect the stars!',  create:createStarSwimmer },
-  { name:'Memory Match',   icon:'🧠', desc:'Find all 8 pairs!',   create:createMemoryMatch },
+  { name:'Chomp!',         icon:'👾', desc:'Eat all the dots!',   create:createMazeMuncher },
   { name:'Cross the Road', icon:'🚗', desc:'Cross safely!',       create:createRoadCrosser },
   { name:'Space Blaster',  icon:'🚀', desc:'Blast the aliens!',   create:createSpaceBlaster },
   { name:'Jump & Run',     icon:'🏃', desc:'Jump over everything!',create:createJumpAndRun },
@@ -3145,96 +2984,8 @@ const MINI_GAMES = [
   { name:'Barrel Dodge',   icon:'🛢️', desc:'Climb to the top!',   create:createBarrelDodge },
 ];
 
-// ════════════════════════════════════════════════
-//  NORA QUEST mini-game — Memory Match (DOM, touch-first, untimed)
-//  Find all the pairs → +5 stars → reuse the standard result→map flow.
-// ════════════════════════════════════════════════
-const NORA_MEM_EMOJI = ['🐶','🐱','🐰','🦊','🐸','🐼','🦁','🐵','🐯','🐷','🐔','🦄','⭐','🌈','🍎','🌸','🦋','🐢'];
-let noraMemFlipped = [];
-let noraMemLock = false;
-let noraMemMatched = 0;
-const NORA_CARD_BACK = 'linear-gradient(145deg,#9b6dff,#6a4bd0)';
-
-function startNoraMemoryGame() {
-  cleanupMiniGame();           // stop any stray arcade loop/timer
-  mgActive = false;
-  clearBiomeBg();
-  document.body.style.background = 'linear-gradient(135deg,#2a1a5a 0%,#3a2a7a 50%,#1a2a6a 100%)';
-  document.getElementById('mg-title').textContent = '🎮 Memory Match!';
-  // hide the arcade bits
-  document.getElementById('mg-canvas').style.display = 'none';
-  document.getElementById('mg-overlay').style.display = 'none';
-  document.getElementById('mg-result').style.display = 'none';
-  { const hud = document.querySelector('.mg-hud'); if (hud) hud.style.display = 'none'; }
-  document.getElementById('mg-dpad').style.display = 'none';
-
-  const grid = document.getElementById('nora-mg');
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:460px;width:100%;margin:0 auto;';
-  grid.innerHTML = '';
-
-  const picks = shuffleArray([...NORA_MEM_EMOJI]).slice(0, 4);   // 4 pairs = 8 cards
-  const cards = shuffleArray([...picks, ...picks]);
-  noraMemFlipped = []; noraMemLock = false; noraMemMatched = 0;
-
-  cards.forEach(emoji => {
-    const card = document.createElement('button');
-    card.dataset.emoji = emoji;
-    card.dataset.state = 'down';
-    card.textContent = '❓';
-    card.style.cssText =
-      'aspect-ratio:1/1;font-size:clamp(2rem,9vw,3.4rem);border:none;border-radius:18px;' +
-      'background:' + NORA_CARD_BACK + ';color:#fff;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,0.25);';
-    card.onclick = () => noraFlipCard(card);
-    grid.appendChild(card);
-  });
-
-  showScreen('minigame-screen');
-  setTimeout(() => speakSentence('Find the matching pairs!'), 400);
-}
-
-function noraFlipCard(card) {
-  if (noraMemLock || card.dataset.state !== 'down') return;
-  card.dataset.state = 'up';
-  card.textContent = card.dataset.emoji;
-  card.style.background = '#ffffff';
-  noraMemFlipped.push(card);
-  if (noraMemFlipped.length < 2) return;
-
-  const [a, b] = noraMemFlipped;
-  if (a.dataset.emoji === b.dataset.emoji) {
-    [a, b].forEach(c => { c.dataset.state = 'matched'; c.style.background = '#c8f7c5'; c.disabled = true; });
-    noraMemFlipped = [];
-    noraMemMatched++;
-    playSound('correct');
-    fireConfetti(10, ['⭐','✨','🌟','🎉']);
-    if (noraMemMatched >= 4) setTimeout(finishNoraMemoryGame, 700);
-  } else {
-    noraMemLock = true;
-    setTimeout(() => {
-      [a, b].forEach(c => { c.dataset.state = 'down'; c.textContent = '❓'; c.style.background = NORA_CARD_BACK; });
-      noraMemFlipped = []; noraMemLock = false;
-    }, 850);
-  }
-}
-
-function finishNoraMemoryGame() {
-  document.getElementById('nora-mg').style.display = 'none';
-  totalStars += 5;
-  saveProgress();
-  playSound('levelwin');
-  fireFireworks();
-  document.getElementById('mg-result').style.display = 'flex';
-  document.getElementById('mg-result-score').textContent = 'You found them all! +5 bonus stars! ⭐';
-  speakWord('Great job!');
-}
-
 // ── Flow ──
 function startMiniGameFlow(levelIdx) {
-  if (playerProfile === 'nora') { startNoraMemoryGame(); return; }
-  // restore the arcade view (a prior Nora memory game may have hidden these)
-  document.getElementById('mg-canvas').style.display = '';
-  document.getElementById('nora-mg').style.display = 'none';
-  { const hud = document.querySelector('.mg-hud'); if (hud) hud.style.display = ''; }
   if (!mgGameOrder.length) mgGameOrder = shuffleArray([...Array(MINI_GAMES.length).keys()]);
   const gameDef = MINI_GAMES[mgGameOrder[levelIdx % mgGameOrder.length]];
   const canvas  = document.getElementById('mg-canvas');
@@ -3264,7 +3015,7 @@ function startMiniGameFlow(levelIdx) {
       document.getElementById('mg-overlay').style.display = 'none';
       mgCurrentGame = gameDef.create(canvas, ctx);
       mgActive      = true;
-      mgTimeLeft    = playerProfile === 'nora' ? 30 : (mgCurrentGame.duration || 45);
+      mgTimeLeft    = mgCurrentGame.duration || 45;
       document.getElementById('mg-timer').textContent = '⏱️ ' + mgTimeLeft;
 
       mgTimerId = setInterval(() => {
@@ -3651,98 +3402,6 @@ function createMazeMuncher(canvas, ctx) {
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     },
     cleanup() {}
-  };
-}
-
-// ════════════════════════════════════════════════
-//  GAME 2 (replacement) — Memory Match  🧠  (timed, 4×4 = 8 pairs)
-//  Replaced the Pac-Man "Chomp!" game per Marcelle's request (6/24/26).
-//  Canvas-based so it uses the framework timer: finish all pairs OR time out.
-// ════════════════════════════════════════════════
-function createMemoryMatch(canvas, ctx) {
-  const W = canvas.width, H = canvas.height;
-  const COLS = 4, ROWS = 4, GAP = 12;
-  const CARD = Math.floor((Math.min(W, H) - (COLS + 1) * GAP) / COLS);
-  const GRIDW = COLS * CARD + (COLS + 1) * GAP;
-  const OX = Math.floor((W - GRIDW) / 2), OY = Math.floor((H - GRIDW) / 2);
-
-  const POOL = ['🐶','🐱','🐰','🦊','🐸','🐼','🦁','🐵','🐯','🐷','🐔','🦄','⭐','🌈','🍎','🦋','🐢','🐝'];
-  const picks = shuffleArray([...POOL]).slice(0, 8);
-  const cards = shuffleArray([...picks, ...picks]).map(e => ({ emoji: e, state: 'down' }));
-
-  let first = null, second = null, lock = false, lockTimer = 0, matched = 0;
-
-  const dpad = document.getElementById('mg-dpad');
-  if (dpad) dpad.style.display = 'none';   // tap-only game
-
-  function cardXY(idx) {
-    const col = idx % COLS, row = Math.floor(idx / COLS);
-    return [OX + GAP + col * (CARD + GAP), OY + GAP + row * (CARD + GAP)];
-  }
-
-  function flip(idx) {
-    const card = cards[idx];
-    if (!card || card.state !== 'down') return;
-    card.state = 'up';
-    if (first === null) { first = idx; return; }
-    if (idx === first) return;
-    second = idx;
-    if (cards[first].emoji === cards[idx].emoji) {
-      cards[first].state = 'matched'; cards[idx].state = 'matched';
-      matched += 2; mgScore += 10;
-      try { playSound('correct'); } catch (e) {}
-      try { fireConfetti(8, ['⭐','✨','🌟']); } catch (e) {}
-      first = second = null;
-      if (matched >= cards.length) finishMiniGame();
-    } else {
-      lock = true; lockTimer = 0.85;
-    }
-  }
-
-  function onTap(e) {
-    if (!mgActive || lock) return;
-    const rect = canvas.getBoundingClientRect();
-    const cx = (e.clientX - rect.left) * (W / rect.width);
-    const cy = (e.clientY - rect.top) * (H / rect.height);
-    for (let idx = 0; idx < cards.length; idx++) {
-      const [x, y] = cardXY(idx);
-      if (cx >= x && cx <= x + CARD && cy >= y && cy <= y + CARD) { flip(idx); return; }
-    }
-  }
-  canvas.addEventListener('pointerdown', onTap);
-
-  return {
-    duration: 60,   // change to 45 for a tougher timer
-    update(dt) {
-      if (lock) {
-        lockTimer -= dt;
-        if (lockTimer <= 0) {
-          if (first !== null) cards[first].state = 'down';
-          if (second !== null) cards[second].state = 'down';
-          first = second = null; lock = false;
-        }
-      }
-    },
-    render(ctx) {
-      ctx.fillStyle = '#1a0a3a'; ctx.fillRect(0, 0, W, H);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      for (let idx = 0; idx < cards.length; idx++) {
-        const [x, y] = cardXY(idx);
-        const c = cards[idx];
-        if (c.state === 'down') {
-          ctx.fillStyle = '#6a4bd0'; ctx.fillRect(x, y, CARD, CARD);
-          ctx.fillStyle = 'rgba(255,255,255,0.85)';
-          ctx.font = `${Math.floor(CARD*0.4)}px serif`;
-          ctx.fillText('?', x + CARD/2, y + CARD/2 + 2);
-        } else {
-          ctx.fillStyle = (c.state === 'matched') ? '#c8f7c5' : '#ffffff';
-          ctx.fillRect(x, y, CARD, CARD);
-          ctx.font = `${Math.floor(CARD*0.55)}px serif`;
-          ctx.fillText(c.emoji, x + CARD/2, y + CARD/2 + 2);
-        }
-      }
-    },
-    cleanup() { canvas.removeEventListener('pointerdown', onTap); }
   };
 }
 

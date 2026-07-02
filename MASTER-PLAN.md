@@ -78,6 +78,26 @@ Math levels use the same map/location/friend structure but replace the word acti
 
 ---
 
+### Project A-4: Phonics / Decoding Mode
+*Status: **DEFERRED — offline-first (decided 6/20/26).** In-game phonics is NOT the right vehicle for decoding: it's a **production** skill (she must say + blend sounds and be heard/corrected in real time), and a tap-to-choose game can't hear her — plus browser TTS can't cleanly speak isolated phonemes. Real teaching happens **offline, parent-led** (see `Parenting/Marcelle-Summer2026-Learning-Plan.md`). The existing game stays as-is and remains valuable for sight-word automaticity, Spanish, and math. Revisit ONLY if she wants in-app reinforcement after offline phonics is rolling — and if so, build only the minimal-pair round (see decision below).*
+
+**Why now:** Marcelle's English reading lags slightly (she's learning English + Spanish simultaneously). The specific weakness: she **guesses** at unknown English words instead of sounding them out — she's a strong *Spanish* decoder (transparent orthography) but English sound-mapping is opaque. **The current game is whole-word recognition** (hear "cat" → tap the word "cat"), which trains sight-recognition and can *reinforce* the guessing habit — it never makes her decode an unknown word. A decoding mode fixes that gap.
+
+**Concept:** a new level type `'phonics'` focused on **CVC decoding + phoneme blending** using *decodable* words (NOT Dolch sight words). Distractors are **minimal pairs** (cat/cap/can) so word-shape guessing fails and she *must* decode.
+
+**⚠️ Key design decision — the TTS phoneme problem:** browser `speechSynthesis` cannot cleanly speak isolated phonemes (/k/ /a/ /t/) — it says letter *names* or distorted sounds. Two mechanics work around this:
+- **Option 1 (RECOMMENDED — low risk, reuses tap renderer):** show CVC letters spaced out (c · a · t); tapping a letter plays its sound; a "Blend it!" button sweeps the sounds; she picks the word from 3 minimal-pair choices.
+- **Option 2:** hear a word, *build* it from letter tiles in order (segmenting practice).
+- **Audio sub-decision:** pre-recorded phoneme clips (best quality, ~44 clips) vs. best-effort TTS (instant, lower quality). Try TTS first; upgrade to clips if unclear to her.
+
+**Content:** CVC decodable bank by word family (-at, -an, -ig, -op, -un…), ~80–120 words. Tiers: T1 short-a CVC → T2 all short vowels → T3 digraphs (sh/ch/th) + CCVC blends. Aligns with the offline plan's synthetic-phonics sequence (`Parenting/Marcelle-Summer2026-Learning-Plan.md`).
+
+**Integration:** add `'phonics'` to `levelTypeOrder` (decide: 4th type, or convert one of the 3 English `'words'` slots → phonics for more decoding exposure); add `buildPhonicsPool()` + a `'phonics'` branch in `newRound()`; reuse the existing 3-choice tap renderer + feedback/streak system. **Never break what she already plays** (guiding principle).
+
+**DECISION (6/20/26): deferred (see Status).** If/when revisited, build ONLY the **minimal-pair discrimination round** — speak the WHOLE word normally (no phoneme TTS needed) and present 3 choices differing by a single sound (cat / cap / can) so she must attend to *every* sound instead of guessing from word shape. This is the one phonics-ish thing the game does cleanly + cheaply. Per-phoneme audio and build-from-tiles mechanics are shelved. Earliest revisit: ~Aug 2026, and only if offline phonics is going well and she wants in-app reinforcement.
+
+---
+
 ### Level Rotation (A-1 + A-2 + A-3 combined)
 Once all three projects are complete, the 9-level journey for each character rotates through topics:
 
@@ -192,23 +212,33 @@ Replace random emoji sceneStates with meaningful 10-step visual progressions (ca
 
 ---
 
-## PART E — Nora's Version (Age 3–4)
-*Status: Future — after Part D or in parallel*
+## PART E — Nora's Version ("Nora Quest") — Age 3–4
+*Status: **READY TO BUILD** — parent-requested 6/20/26. Clean fit for the engine: Nora's content is recognition/matching, which IS the existing "hear it → tap the match" mechanic (unlike phonics decoding, which needs production). Companion to `Parenting/Nora-Summer2026-Learning-Plan.md`.*
 
-**Concept:** On the opening screen, player selects **Marcelle** or **Nora** before choosing a character. Each player has their own save slot and age-appropriate content.
+**Concept:** On the opening screen, player picks **Marcelle** or **Nora** before choosing a character. Each profile gets its own localStorage save slot, content tier, and progress.
 
-**Nora's content (3–4 year old curriculum):**
-- Letter recognition — hear a letter name, tap the correct letter
-- Letter sounds — hear a sound, tap the matching letter
-- Number recognition (1–10) — hear a number, tap it
-- Counting (1–10) — count emoji objects, tap the answer
-- Colors — hear a color name, tap the matching colored shape
-- Shapes — hear a shape name, tap the correct shape
-- Simple matching — match animal to sound, color to object, etc.
-- Shorter sessions — maybe 6 questions per level instead of 10
-- More celebration/reward moments — Nora needs more frequent positive feedback
+**Nora's content tier — ENGLISH-FIRST (no Spanish track — she's pre-Trejo; English foundation is the priority, per the Spanish decision 6/20/26):**
+- Letter recognition — hear a letter name, tap the letter (upper + lower)
+- Letter **sounds** — hear a sound, tap the matching letter (builds decoding, not guessing)
+- Number recognition (1–10 → 20) — hear a number, tap it
+- Counting — count emoji objects (one-to-one), tap the total
+- Subitizing — flash 1–5 objects, tap how many (no counting)
+- Colors — hear a color, tap the swatch
+- Shapes — hear a shape, tap it
+- Simple matching / odd-one-out / patterns (what comes next)
+- **Shorter sessions (~6 questions** vs 10)
+- **More celebration** — confetti/sound on every correct, very low failure friction, lots of positive feedback
 
-**Technical:** Single codebase with a player-profile system selecting content tier at launch.
+**Mini-games — SIMPLIFIED + TOUCH-FIRST for Nora (parent note 6/20/26):**
+- Device is a **touchscreen**; arrow-key/d-pad control is too hard for a 3–4-year-old. Nora's mini-games must use **direct touch** — tap where to go / tap to act — NOT arrow keys or a d-pad.
+- **Simplify:** slower pace, forgiving or no fail state, shorter (~30s), fewer hazards, big tap targets. Either curate the tap-friendly subset of the existing 9 or build 2–3 dead-simple tap games for her (e.g., "tap the falling stars," "pop the bubbles," "feed the animal"). Avoid precision/timing games (Tetris, Pong, Barrel Dodge) for her tier.
+
+**Technical / integration:**
+- Player-profile select at launch → `playerProfile` ('marcelle' | 'nora') drives content tier, session length, mini-game set, and a separate localStorage save key.
+- Reuse the existing tap renderer + feedback/streak/celebration (Nora dials celebration UP).
+- **Guiding principle holds — never break Marcelle's game.** Build behind the profile switch so her experience is untouched by default.
+
+**OPEN before build:** confirm first content set; decide whether to ship in stages (content tier first → simplified tap mini-games second).
 
 ---
 
@@ -287,3 +317,11 @@ Replace random emoji sceneStates with meaningful 10-step visual progressions (ca
 | Mar 2026 | B-3 complete — all 9 mini-games built. Games 4-6: Space Blaster, Jump & Run (holes + reachable coins), Pong (rubber-band AI, diagonal enforcement). Games 7-9: Block Drop (Tetris w/ rotation, 60s, speed phases), Brick Breaker (replaced Puzzle Push — rally speed system), Barrel Dodge (DK). Game order shuffled per journey. |
 | Mar 2026 | B-2 polish — fireworks at 5-streak and level complete, repeat 🔊 slows voice 15% per press (floor 0.35), all TTS functions accept rate parameter |
 | Mar 2026 | Level type rotation shuffled — E/M/S each appear 3x in groups of 3, no back-to-back. Math counting replaced with number patterns (fill-in-the-blank sequences). B-4 (speech recognition read-aloud) added to plan for post-GitHub-Pages. |
+| Jun 2026 | **Summer focus set with parent.** Confirmed Math (A-2) + Spanish (A-3) already in-game and cover those goals. **Phonics/decoding identified as the real gap** (Marcelle guesses vs. sounds out English words) → created **Project A-4** (elevated from Part D) with full spec. Offline learning plan written to `Parenting/Marcelle-Summer2026-Learning-Plan.md` (reading-decoding focus + Spanish maintenance + 1st-grade math). |
+| Jun 2026 | **A-4 DEFERRED — offline-first decision.** Concluded the game can't teach decoding (production skill it can't hear; TTS can't say phonemes); real teaching is parent-led offline. Game left as-is (still valuable for sight words / Spanish / math). If revisited (~Aug, only if she wants in-app reinforcement), build ONLY the minimal-pair discrimination round. No game-code changes made this session. |
+| Jun 2026 | **Marcelle game: Pac-Man → Memory Match (timed).** Per Marcelle's request (6/24), replaced "Chomp!" (createMazeMuncher) with `createMemoryMatch` — canvas-based **4×4 = 8 pairs, 60s timer** (change `duration:60`→45 for tougher). Ends on all-pairs-matched (calls finishMiniGame early) OR timeout (framework handles). Tap-to-flip via canvas pointerdown w/ rect-scaled coords; d-pad hidden; +10 score/match, confetti+sound on match; +5 bonus stars on finish like all mini-games. Repointed MINI_GAMES index 1; old createMazeMuncher left as harmless dead code. `node --check` passes. Test directly: `?testgame=1`. **Awaiting parent test.** |
+| Jun 2026 | **Part E (Nora Quest) elevated to READY TO BUILD** — parent-requested. Refined content tier (English-first, no Spanish; recognition/matching = clean engine fit). Added parent constraints: simplified + **touch-first** mini-games (no arrow/d-pad for a 3–4yo). Companion plan written to `Parenting/Nora-Summer2026-Learning-Plan.md`. Build pending parent go (stage option: content tier first, tap mini-games second). |
+| Jun 2026 | **Nora Quest SLICE 1 shipped — profile foundation.** Added a "Who's Playing?" select screen (🦄 Marcelle / 🐥 Nora) as the new launch screen; `playerProfile` global; localStorage namespaced to `${profile}_*` (Marcelle's keys unchanged → her progress preserved); `selectProfile()` with profile-specific welcome-back. Marcelle's experience untouched behind the switch. Backup: `index.html.bak-noraquest-20260620`. **PARENT-TESTED OK.** |
+| Jun 2026 | **Nora Quest SLICE 2 shipped — Nora's content tier.** Nora button now live. Her levels = **6 questions** (6 progress dots), reusing the 3-button tap renderer + checkAnswer + celebration. 7 content generators (English-first): letter recognition, first-sound→letter (phonics-friendly, sidesteps phoneme-TTS by speaking the whole word), number recognition, counting (1–6), colors, shapes, picture-vocab. `buildNoraPool()` = 1 of each core type, shuffled. All audio forced through English `speakSentence` (avoids the shared level-rotation occasionally voicing Spanish); `noraPrompt` global powers the 🔊 repeat. Caught + fixed a bug pre-ship: level-complete threshold was still 10 (would overrun her 6-question pool). `node --check` passes. **Awaiting parent in-browser test.** Cosmetic TODO: title still says "Marcelle's…" for both profiles (make dynamic later). Slice 3 = simplified touch mini-games. |
+| Jun 2026 | **Nora Quest — parent playtest fixes.** (1) Nora mini-games capped to **30s** (`playerProfile==='nora'`). (2) Counting bug fixed: 6 big emojis overflowed the non-wrapping scene-display row (looked like "no picture") → reduced to **1–5, spaced, smaller font** (`sceneSize`) so all fit + are countable. (3) Colors trimmed to **6 bright distinct** (dropped black/brown — ambiguous as small squares; black was recurring). Note: `buildNoraPool` only generates ONE color-or-shape question per level, so "two black colors" was across two levels (random), not one. `node --check` passes. **Slice 3 NEXT: replace the hard arrow-key mini-games with simple touch games — memory-match first (best fit), then puzzle/easy maze.** |
+| Jun 2026 | **Nora Quest SLICE 3 (first game) shipped — Memory Match.** DOM-based (not canvas) for clean tap targets: a 4×2 grid of 8 cards (4 emoji pairs); tap two, matches turn green + confetti, mismatches flip back, find all 4 → +5 stars → reuses the standard result→map flow. **Untimed** (find-all-pairs, no countdown — gentler than the 30s arcade cap; Nora now gets Memory Match INSTEAD of the hard arcade games entirely). `startMiniGameFlow` short-circuits to it for `playerProfile==='nora'`; restores the arcade view for Marcelle so profile-switching can't leave the canvas hidden. `node --check` passes. **Awaiting parent test.** Future variety: simple puzzle + easy maze (same DOM/tap pattern). |

@@ -3135,7 +3135,7 @@ let mgGameOrder = []; // shuffled indices into MINI_GAMES — set per character 
 
 const MINI_GAMES = [
   { name:'Star Swimmer',   icon:'🌊', desc:'Collect the stars!',  create:createStarSwimmer },
-  { name:'Memory Match',   icon:'🧠', desc:'Find all 8 pairs!',   create:createMemoryMatch },
+  { name:'Chomp!',         icon:'👾', desc:'Eat all the dots!',   create:createMazeMuncher },
   { name:'Cross the Road', icon:'🚗', desc:'Cross safely!',       create:createRoadCrosser },
   { name:'Space Blaster',  icon:'🚀', desc:'Blast the aliens!',   create:createSpaceBlaster },
   { name:'Jump & Run',     icon:'🏃', desc:'Jump over everything!',create:createJumpAndRun },
@@ -3651,98 +3651,6 @@ function createMazeMuncher(canvas, ctx) {
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     },
     cleanup() {}
-  };
-}
-
-// ════════════════════════════════════════════════
-//  GAME 2 (replacement) — Memory Match  🧠  (timed, 4×4 = 8 pairs)
-//  Replaced the Pac-Man "Chomp!" game per Marcelle's request (6/24/26).
-//  Canvas-based so it uses the framework timer: finish all pairs OR time out.
-// ════════════════════════════════════════════════
-function createMemoryMatch(canvas, ctx) {
-  const W = canvas.width, H = canvas.height;
-  const COLS = 4, ROWS = 4, GAP = 12;
-  const CARD = Math.floor((Math.min(W, H) - (COLS + 1) * GAP) / COLS);
-  const GRIDW = COLS * CARD + (COLS + 1) * GAP;
-  const OX = Math.floor((W - GRIDW) / 2), OY = Math.floor((H - GRIDW) / 2);
-
-  const POOL = ['🐶','🐱','🐰','🦊','🐸','🐼','🦁','🐵','🐯','🐷','🐔','🦄','⭐','🌈','🍎','🦋','🐢','🐝'];
-  const picks = shuffleArray([...POOL]).slice(0, 8);
-  const cards = shuffleArray([...picks, ...picks]).map(e => ({ emoji: e, state: 'down' }));
-
-  let first = null, second = null, lock = false, lockTimer = 0, matched = 0;
-
-  const dpad = document.getElementById('mg-dpad');
-  if (dpad) dpad.style.display = 'none';   // tap-only game
-
-  function cardXY(idx) {
-    const col = idx % COLS, row = Math.floor(idx / COLS);
-    return [OX + GAP + col * (CARD + GAP), OY + GAP + row * (CARD + GAP)];
-  }
-
-  function flip(idx) {
-    const card = cards[idx];
-    if (!card || card.state !== 'down') return;
-    card.state = 'up';
-    if (first === null) { first = idx; return; }
-    if (idx === first) return;
-    second = idx;
-    if (cards[first].emoji === cards[idx].emoji) {
-      cards[first].state = 'matched'; cards[idx].state = 'matched';
-      matched += 2; mgScore += 10;
-      try { playSound('correct'); } catch (e) {}
-      try { fireConfetti(8, ['⭐','✨','🌟']); } catch (e) {}
-      first = second = null;
-      if (matched >= cards.length) finishMiniGame();
-    } else {
-      lock = true; lockTimer = 0.85;
-    }
-  }
-
-  function onTap(e) {
-    if (!mgActive || lock) return;
-    const rect = canvas.getBoundingClientRect();
-    const cx = (e.clientX - rect.left) * (W / rect.width);
-    const cy = (e.clientY - rect.top) * (H / rect.height);
-    for (let idx = 0; idx < cards.length; idx++) {
-      const [x, y] = cardXY(idx);
-      if (cx >= x && cx <= x + CARD && cy >= y && cy <= y + CARD) { flip(idx); return; }
-    }
-  }
-  canvas.addEventListener('pointerdown', onTap);
-
-  return {
-    duration: 60,   // change to 45 for a tougher timer
-    update(dt) {
-      if (lock) {
-        lockTimer -= dt;
-        if (lockTimer <= 0) {
-          if (first !== null) cards[first].state = 'down';
-          if (second !== null) cards[second].state = 'down';
-          first = second = null; lock = false;
-        }
-      }
-    },
-    render(ctx) {
-      ctx.fillStyle = '#1a0a3a'; ctx.fillRect(0, 0, W, H);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      for (let idx = 0; idx < cards.length; idx++) {
-        const [x, y] = cardXY(idx);
-        const c = cards[idx];
-        if (c.state === 'down') {
-          ctx.fillStyle = '#6a4bd0'; ctx.fillRect(x, y, CARD, CARD);
-          ctx.fillStyle = 'rgba(255,255,255,0.85)';
-          ctx.font = `${Math.floor(CARD*0.4)}px serif`;
-          ctx.fillText('?', x + CARD/2, y + CARD/2 + 2);
-        } else {
-          ctx.fillStyle = (c.state === 'matched') ? '#c8f7c5' : '#ffffff';
-          ctx.fillRect(x, y, CARD, CARD);
-          ctx.font = `${Math.floor(CARD*0.55)}px serif`;
-          ctx.fillText(c.emoji, x + CARD/2, y + CARD/2 + 2);
-        }
-      }
-    },
-    cleanup() { canvas.removeEventListener('pointerdown', onTap); }
   };
 }
 
