@@ -2732,8 +2732,8 @@ function renderSpanishQuestion() {
     btn.dataset.word = q.choices[i].key;
     btn.style.display = '';
   }
-  if (q.type === 'listen') setTimeout(() => speakSpanishWord(q.spanish), 450);
-  // 'picture' type: no auto-speak (would give the answer away)
+  // Auto-say the word once on BOTH round types (max listening exposure); 🔊 repeats.
+  setTimeout(() => speakSpanishWord(q.spanish), 450);
 }
 
 function speakSentence(text, rate) {
